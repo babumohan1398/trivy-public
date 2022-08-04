@@ -1,18 +1,11 @@
-FROM node:18.6 AS appbuild
-WORKDIR /usr/src/app
-RUN npm install npm -g
-COPY package*.json ./
-RUN npm install
-COPY . .
-#RUN npm run build
-# Build Stage 2
-# This build takes the production build from staging build
-#
-FROM node:18.6-alpine
-WORKDIR /usr/src/app
-RUN npm install npm -g
-COPY package*.json ./
-RUN npm install
-#COPY --from=appbuild /usr/src/app/dist ./dist
-EXPOSE 8000
-ENTRYPOINT [ "bash", "entrypoint.sh" ]
+FROM golang:alpine AS build-env
+RUN mkdir /go/src/app && apk update && apk add git
+ADD main.go /go/src/app/
+WORKDIR /go/src/app
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o app main.go
+
+FROM node
+WORKDIR /app
+COPY --from=build-env /go/src/app/app .
+EXPOSE 8080
+ENTRYPOINT [ "./app" ]
